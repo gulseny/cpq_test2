@@ -1,0 +1,223 @@
+<apex:component controller="QuoteLineEditorController" layout="none">
+	<apex:attribute name="headerTitle" type="String" description="Header title"/>
+	<apex:attribute name="headerSubtitle" type="String" description="Header subtitle"/>
+	<apex:attribute name="quoteId" type="String" description="Quote ID"/>
+	<apex:attribute name="objectNames" type="String" description="Names of objects used by this component"/>
+	
+	<apex:stylesheet value="{!$Resource.QuoteEditorCSS}"/>
+	
+	<script type="text/javascript" src="{!$Resource.QuoteLineEditorUI}"></script>
+	
+	<div ng-controller="QuoteLineEditorCtrl" ng-init="editorConfigurationPath='{!$Resource.CKEditorOverlayConfig}'; resources={lbl_edit:'{!$Label.lbl_edit}'}; onLoad('{!quoteId}', '{!objectNames}')" ng-show="active">
+		<c:pageHeader title="{!headerTitle}" subtitle="{!headerSubtitle}" formFactor="{!formFactor}" customTheme="18"/>
+		
+		<c:messages messagesExpr="messages" formFactor="{!formFactor}"/>
+	   		
+	   	<c:status displayExpr="blockingOperationInProgress" formFactor="{!formFactor}"/>
+
+		<div ng-show="!blockingOperationInProgress && (editorModel != null) && !editLineMode">
+	        <c:pageBlock formFactor="{!formFactor}">
+	            <c:pageBlockHeader formFactor="{!formFactor}">
+	                <c:quoteLineEditorButtons quoteId="{!quoteId}" formFactor="{!formFactor}"/>
+	            </c:pageBlockHeader>
+
+	            <div> hi there! </div>
+	            
+	            <div class="pbBody">
+	            <div ng-show="editorModel.quoteFields.length > 0">
+		            <c:pageBlockSection title="{{editorModel.quoteFieldsSectionTitle}}" formFactor="{!formFactor}">
+			            <table class="detailList" width="100%" border="0" cellspacing="0" cellpadding="0">
+				            <tbody>
+				            	<tr ng-repeat="sectionRow in editorModel.quoteSectionRows">
+				            		<td nowrap="true" ng-repeat-start="field in sectionRow" class="labelCol">
+				            			<label><span ng-bind-html="field.label"/></label>
+				            		</td>
+				            		<td nowrap="true" ng-repeat-end="ng-repeat-end" class="dataCol">
+				            			<div qq-field="field"
+											qq-value="editorModel.quote.record[field.getValueProperty()]"
+											qq-editable="field.updateable"
+											qq-currency-symbol="editorModel.currencySymbol"/>
+				            		</td>
+				            	</tr>
+				            </tbody>
+			            </table>
+		            </c:pageBlockSection>
+	            </div>
+	            
+	            <div ng-repeat="group in editorModel.quote.lineItemGroups">
+	           		<c:pageBlockSection title="{{editorModel.quote.grouped ? group.record.Name : editorModel.linesSectionTitle}}" formFactor="{!formFactor}">
+						<c:quoteGroupEditor editorModelExpr="editorModel"/>
+	                        
+						<div key="{{group.key}}" ng-show="editorModel.quote.grouped && (group.lineItems.length == 0)" style="padding: 10px" 
+							data-drop="true" jqyoui-droppable="{onDrop:'onDropRow'}" data-jqyoui-options="{hoverClass:'dropGroupHover'}" >
+							{!$Label.msg_empty_group}
+						</div>
+						
+						<div ng-show="!editorModel.quote.grouped && (group.lineItems.length == 0)">
+						    {!$Label.msg_empty_quote}
+						</div>
+	                        
+						<table ng-show="group.lineItems.length > 0" class="list" border="0" cellspacing="0" cellpadding="0" width="100%">
+						    <thead class="dr-table-thead">
+						        <tr class="headerRow">
+						        	<apex:outputPanel layout="none" rendered="{!formFactor == 'desktop'}">
+						            <th ng-show="editorModel.settings.multiLineDeleteEnabled" class="headerRow">&nbsp;</th>
+						            </apex:outputPanel>
+						            <th class="headerRow">#</th>
+						            <apex:outputPanel layout="none" rendered="{!formFactor == 'desktop'}">
+					                <th class="headerRow" ng-show="editorModel.isSubscriptionScopeShown() && !Controller.isMobileContext()">
+										<span class="helpButton"> 
+											<apex:outputText value="{!$ObjectType.QuoteLine__c.fields.SubscriptionScope__c.label}"/>
+											<img class="helpOrb" title="{!$Label.msg_subscription_scope}" alt="" src="/s.gif"/>
+										</span>
+					                    &nbsp;
+					                </th>
+					                </apex:outputPanel>
+					                <th class="headerRow {{field.getColumnClass()}}" ng-repeat="field in editorModel.getLineFields('{!formFactor}')">
+					                    <span ng-bind-html="field.label"/>
+					                </th>
+						            <th class="headerRow">&nbsp;</th>
+						        </tr>
+						    </thead>
+						    <tfoot class="dr-table-tfoot">
+						    	<tr class="headerRow" ng-show="editorModel.summarized">
+									<c:quoteLineRow lineExpr="group.summaryLine" actionsRendered="false"
+										multiSelectorRendered="false"
+										formFactor="{!formFactor}"/>
+								</tr>
+						        <tr class="dataRow"> 
+						            <td class="dataCell" align="right" colspan="{{editorModel.getLineColumnCount('{!formFactor}')}}">
+						            	<table border="0" style="border: 0px" cellspacing="0" cellpadding="0" width="100%">
+							        		<tbody>
+							        			<tr>
+							        				<td class="actionColumn" style="border: 0px">
+							        					<span style="margin-right: 10px;" ng-show="editorModel.additionalDiscountFieldShown">
+							        						<a ng-click="onResetDiscounts(group)" class="actionLink" style="cursor: pointer">{!$Label.lbl_reset_discounts}</a>
+							        					</span>
+							        					<span ng-show="editorModel.optionalFieldShown && !group.isOptional()">
+							         					{!$ObjectType.QuoteLine__c.fields.Optional__c.label}: 
+							         					<a ng-click="group.updateLineOptional(true); onChangeValue($event, null, group)" class="actionLink" style="margin-left: 5px; cursor: pointer">{!$Label.lbl_all}</a>
+							         					<a ng-click="group.updateLineOptional(false); onChangeValue($event, null, group)" class="actionLink" style="margin-left: 3px; cursor: pointer">{!$Label.lbl_none}</a>
+							        					</span>
+							        				</td>
+							        				<td style="border: 0px" align="right">
+														<b>
+															<span ng-show="editorModel.quote.grouped">{{group.record.Name}} {!$Label.lbl_subtotal}</span>
+															<span ng-show="!editorModel.quote.grouped">{!$Label.lbl_total}:</span>
+														</b>
+													</td>
+												</tr>
+											</tbody>
+										</table>
+									</td>
+									<td class="dataCell" colspan="2">{{editorModel.groupNetTotalField.formatValue(group.getTotal(), editorModel.currencySymbol)}}</td>
+							    </tr>
+							</tfoot>
+							<tbody>
+								<tr class="dataRow" key="{{line.key}}" data-drag="true" data-drop="true" 
+									jqyoui-droppable="{onDrop:'onDropRow'}" 
+									jqyoui-draggable="{}" 
+									data-jqyoui-options="{revert:'invalid',helper:'clone',tolerance:'pointer',hoverClass:'dropRowHover'}" 
+									style="cursor: move" 
+									ng-repeat="line in group.getVisibleLineItems()">
+									<c:quoteLineRow formFactor="{!formFactor}"/>
+								</tr>
+							</tbody>
+						</table>
+	            	</c:pageBlockSection>
+	            	</div>
+	            	
+	            	<div ng-show="editorModel.quote.grouped">
+		            	<c:pageBlockSection title="{!$ObjectType.Quote__c.label} {!$Label.lbl_total}: {{editorModel.quoteNetAmountField.formatValue(editorModel.quote.netTotal, editorModel.currencySymbol)}}" formFactor="{!formFactor}">
+	                    </c:pageBlockSection>
+                    </div>
+	            </div>
+	            <apex:outputPanel layout="block" styleClass="pbBottomButtons" rendered="{!formFactor == 'desktop'}">
+	            	<table border="0" cellpadding="0" cellspacing="0">
+	            		<tbody>
+	            			<tr>
+	            				<td class="pbTitle">
+	            					<img src="/s.gif" alt="" width="12" height="1" class="minWidth" title="" style="margin-right: 0.25em;margin-right: 0.25em;"/>&nbsp;
+	            				</td>
+	            				<td class="pbButtonb" id="bottomButtonRow">
+	            					<c:quoteLineEditorButtons quoteId="{!quoteId}" formFactor="{!formFactor}"/>
+	            				</td>
+	            			</tr>
+						</tbody>
+					</table>
+	            </apex:outputPanel>
+	        </c:pageBlock> 
+	        
+	        <div id="editDescriptionWrapper" style="display: none">
+		    <div id="editDescriptionContainer" style="display: none">
+		    	<div>
+		    		<textarea id="qq_descriptionEditor" name="qq_descriptionEditor"></textarea>
+		    	</div>
+			    <apex:panelGrid columns="2">
+			    	<apex:outputPanel layout="none">
+			    		<input type="button" class="btn" value="{!$Label.lbl_save}" ng-click="controller.getRichTextEditor().onSave()"/>
+			    	</apex:outputPanel>
+			    	<apex:outputPanel layout="none">
+			    		<input type="button" class="btn" value="{!$Label.lbl_cancel}" ng-click="controller.getRichTextEditor().onCancel()"/>
+			    	</apex:outputPanel>
+			    </apex:panelGrid>
+		    </div>
+	    	</div>
+		</div>
+		
+		<apex:outputPanel layout="none" rendered="{!formFactor != 'desktop'}">
+        <div ng-show="editLineMode" class="recordEditorForm">
+        	<div class="buttonContainer">
+	        	<button ng-click="editLineMode=false" class="btn primary">
+		    		<span>{!$Label.lbl_close}</span>
+		  		</button>
+		  		<apex:outputPanel layout="none" rendered="{!formFactor == 'tablet'}">
+			  		<button ng-show="editedLines[0].removable" ng-click="editLineMode=false;onDeleteLine(editedLines[0].key)" class="btn primary">
+			    		<span>{!$Label.lbl_del}</span>
+			  		</button>
+			  		<button ng-show="editedLines[0].configurable" ng-click="editLineMode=false;onReconfigureLine(editedLines[0])" class="btn primary">
+			    		<span>{!$Label.lbl_configure}</span>
+			  		</button>
+		  		</apex:outputPanel>
+		  		<apex:outputPanel layout="none" rendered="{!formFactor == 'phone'}">
+			  		<button ng-click="editorDetailActionsShown=true" class="btn phone" title="">
+			    		<span class="icon-utility-down"></span>
+			  		</button>
+			  		<c:modalDialog showExpr="editorDetailActionsShown" closeExpr="editorDetailActionsShown=false">
+			  			<button ng-show="editedLines[0].removable" ng-click="editorDetailActionsShown=false;editLineMode=false;onDeleteLine(editedLines[0].key)" class="btn">
+				    		<span>{!$Label.lbl_del}</span>
+				  		</button>
+				  		<button ng-show="editedLines[0].configurable" ng-click="editorDetailActionsShown=false;editLineMode=false;onReconfigureLine(editedLines[0])" class="btn">
+				    		<span>{!$Label.lbl_configure}</span>
+				  		</button>
+			  		</c:modalDialog>
+		  		</apex:outputPanel>
+	  		</div>
+        	<table ng-repeat="editedLine in editedLines">
+        		<tbody>
+        			<tr ng-repeat="field in editorModel.getLineFields(null)">
+        				<td class="labelCol">
+        					<label><span>{{field.label}}</span></label>
+        				</td>
+        				<td>
+        					<div ng-show="true"
+								qq-field="field"
+								qq-value="editedLine.record[editedLine.mapPropertyName(field)]"
+								qq-editable="editedLine.isEditable(field)"
+								qq-static-value="editedLine.isIncluded(field) ? '{!$Label.lbl_price_included}' : null"
+								qq-disabled="editedLine.isDisabled(field)"
+								qq-on-change="onChangeValue(null, field, editedLine)"
+								qq-currency-symbol="editedLine.currencySymbol"
+								qq-auto-update-view="editedLine.isViewAutoUpdated(field)"
+								qq-unit="editedLine.isUnitRendered(field)"
+								qq-unit-value="editedLine.units[field.name]"
+								qq-unit-options="editedLine.getUnitOptions(field)"
+								qq-unit-on-change="onChangeUnit(field, editedLine)"/>
+        				</td>
+        			</tr>
+        		</tbody>
+        	</table>
+        </div>
+        </apex:outputPanel>
+	</div>
+</apex:component>
